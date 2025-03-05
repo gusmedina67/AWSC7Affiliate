@@ -1,0 +1,187 @@
+service: commerce7-affiliate-api
+frameworkVersion: '3'
+
+custom:
+  affiliateTable: Affiliates
+
+provider:
+  name: aws
+  runtime: python3.10
+  timeout: 30
+  memorySize: 128
+
+  stage: stg
+  region: us-west-1
+
+  logs:
+    restApi: true
+    httpApi: true
+
+  environment:
+    AFFILIATE_ORDERS_TABLE: AffiliateOrders
+    AFFILIATE_TABLE: Affiliates
+    TENANT_SETTINGS_TABLE: TenantSettings
+    STRIPE_SECRET_KEY: sk_test_XXXXXX
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:PutItem"
+            - "dynamodb:GetItem"
+            - "dynamodb:Query"
+            - "dynamodb:UpdateItem"
+            - "dynamodb:DeleteItem"
+            - "dynamodb:Scan"
+            - "dynamodb:BatchWriteItem"
+          Resource:
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/AffiliateOrders"
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates"
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates/index/CustomerIdIndex"
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/TenantSettings"
+
+functions:
+  # ✅ Webhook for order tracking
+  orderWebhook:
+    handler: handler.webhook_handler
+    events:
+      - http:
+          path: webhook/order
+          method: post
+          cors: true
+
+  # ✅ Affiliate management API (CRUD)
+  createAffiliate:
+    handler: handler.create_affiliate
+    events:
+      - http:
+          path: affiliate
+          method: post
+          cors: true
+
+  getAffiliates:
+    handler: handler.get_affiliates
+    events:
+      - http:
+          path: affiliates
+          method: get
+          cors: true
+
+  deleteAffiliate:
+    handler: handler.delete_affiliate
+    events:
+      - http:
+          path: affiliate/{id}
+          method: delete
+          cors: true
+
+  # ✅ Payout processing with Stripe
+  processPayout:
+    handler: handler.process_payout
+    events:
+      - http:
+          path: payout
+          method: post
+          cors: true
+
+  updateAffiliateStatus:
+    handler: handler.update_affiliate_status
+    events:
+      - http:
+          path: update-affiliate-status
+          method: post
+          cors: true
+
+  generateAffiliateLink:
+    handler: handler.generate_affiliate_link
+    events:
+      - http:
+          path: generate-affiliate-link
+          method: post
+          cors: true
+
+  setTenantBaseUrl:
+    handler: handler.set_tenant_base_url
+    events:
+      - http:
+          path: set-tenant-base-url
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    # ✅ Multi-tenant Affiliate Orders table
+    AffiliateOrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: AffiliateOrders
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: orderId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: orderId
+            KeyType: RANGE
+        BillingMode: PROVISIONED # Provisioned throughput mode
+        ProvisionedThroughput: # Minimal configuration for cost-effectiveness
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        SSESpecification: # Enable server-side encryption
+          SSEEnabled: true
+
+    # ✅ Multi-tenant Affiliates table
+    AffiliatesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.affiliateTable}
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: affiliateId
+            AttributeType: S
+          - AttributeName: customerId
+            AttributeType: S  # Required for GSI
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: affiliateId
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: CustomerIdIndex
+            KeySchema:
+              - AttributeName: customerId
+                KeyType: HASH
+              - AttributeName: tenantId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:  # ✅ Fix: Add provisioned throughput to GSI
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+        BillingMode: PROVISIONED  # Provisioned throughput mode
+        ProvisionedThroughput: # Minimal configuration for cost-effectiveness
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        SSESpecification: # Enable server-side encryption
+          SSEEnabled: true
+
+    # ✅ Multi-tenant Settings table
+    TenantSettingsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: TenantSettings
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+        BillingMode: PROVISIONED # Provisioned throughput mode
+        ProvisionedThroughput: # Minimal configuration for cost-effectiveness
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        SSESpecification: # Enable server-side encryption
+          SSEEnabled: true
