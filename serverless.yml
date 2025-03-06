@@ -21,7 +21,9 @@ provider:
     AFFILIATE_ORDERS_TABLE: AffiliateOrders
     AFFILIATE_TABLE: Affiliates
     TENANT_SETTINGS_TABLE: TenantSettings
+    COMMISSION_TABLE: CommissionSettings
     STRIPE_SECRET_KEY: sk_test_XXXXXX
+    C7_API_KEY: YWZmaWxpYXRlLW1hcmtldGluZzpMdm0yQjk2RzFaUnBmak96dzFORkRIYUpiaVZIV2ZFNHZXaEJaaXZ4bmJOTWliTXJQQndtWnR1SUhOU05kMVFX
   iam:
     role:
       statements:
@@ -39,6 +41,7 @@ provider:
             - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates"
             - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates/index/CustomerIdIndex"
             - "arn:aws:dynamodb:us-west-1:655957386383:table/TenantSettings"
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/CommissionSettings"
 
 functions:
   # ✅ Webhook for order tracking
@@ -105,6 +108,61 @@ functions:
     events:
       - http:
           path: set-tenant-base-url
+          method: post
+          cors: true
+
+  # ✅ Save tenant commission program settings
+  saveCommissionProgram:
+    handler: commission_handler.save_commission_program
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: commission-program
+          method: post
+          cors: true
+
+  # ✅ Get tenant commission program settings
+  getCommissionProgram:
+    handler: commission_handler.get_commission_program
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: commission-program
+          method: get
+          cors: true
+
+  # ✅ Retrieve all products from Commerce7 using pagination
+  getProducts:
+    handler: commission_handler.get_products
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: products
+          method: get
+          cors: true
+
+  # ✅ Search for specific products using type-ahead functionality
+  searchProducts:
+    handler: commission_handler.search_products
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: products/search
+          method: get
+          cors: true
+
+  # ✅ Save commission rate for a product using Commerce7 Custom Fields
+  saveProductCommission:
+    handler: commission_handler.save_product_commission
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: product/commission
           method: post
           cors: true
 
@@ -185,3 +243,20 @@ resources:
           WriteCapacityUnits: 1
         SSESpecification: # Enable server-side encryption
           SSEEnabled: true
+
+    # ✅ Table for storing commission program settings
+    CommissionSettingsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CommissionSettings
+        AttributeDefinitions:
+          - AttributeName: tenantId
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: tenantId
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
