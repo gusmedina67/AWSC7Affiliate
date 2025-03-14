@@ -38,6 +38,7 @@ provider:
             - "dynamodb:BatchWriteItem"
           Resource:
             - "arn:aws:dynamodb:us-west-1:655957386383:table/AffiliateOrders"
+            - "arn:aws:dynamodb:us-west-1:655957386383:table/AffiliateOrders/index/TenantAffiliateIndex"
             - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates"
             - "arn:aws:dynamodb:us-west-1:655957386383:table/Affiliates/index/CustomerIdIndex"
             - "arn:aws:dynamodb:us-west-1:655957386383:table/TenantSettings"
@@ -47,31 +48,79 @@ functions:
   # ✅ Webhook for order tracking
   orderWebhook:
     handler: handler.webhook_handler
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: webhook/order
           method: post
           cors: true
 
+  getAffiliateOrders:
+    handler: handler.get_affiliate_orders
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
+    events:
+      - http:
+          path: affiliate-orders
+          method: get
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
+
   # ✅ Affiliate management API (CRUD)
   createAffiliate:
     handler: handler.create_affiliate
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: affiliate
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   getAffiliates:
     handler: handler.get_affiliates
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: affiliates
           method: get
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   deleteAffiliate:
     handler: handler.delete_affiliate
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: affiliate/{id}
@@ -81,6 +130,8 @@ functions:
   # ✅ Payout processing with Stripe
   processPayout:
     handler: handler.process_payout
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: payout
@@ -89,27 +140,63 @@ functions:
 
   updateAffiliateStatus:
     handler: handler.update_affiliate_status
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: update-affiliate-status
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   generateAffiliateLink:
     handler: handler.generate_affiliate_link
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: generate-affiliate-link
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   setTenantBaseUrl:
     handler: handler.set_tenant_base_url
+    layers:
+      - arn:aws:lambda:us-west-1:655957386383:layer:requests-layer:1
     events:
       - http:
           path: set-tenant-base-url
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   # ✅ Save tenant commission program settings
   saveCommissionProgram:
@@ -120,7 +207,17 @@ functions:
       - http:
           path: commission-program
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   # ✅ Get tenant commission program settings
   getCommissionProgram:
@@ -131,7 +228,17 @@ functions:
       - http:
           path: commission-program
           method: get
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   # ✅ Retrieve all products from Commerce7 using pagination
   getProducts:
@@ -142,7 +249,17 @@ functions:
       - http:
           path: products
           method: get
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   # ✅ Search for specific products using type-ahead functionality
   searchProducts:
@@ -153,7 +270,17 @@ functions:
       - http:
           path: products/search
           method: get
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
   # ✅ Save commission rate for a product using Commerce7 Custom Fields
   saveProductCommission:
@@ -164,7 +291,17 @@ functions:
       - http:
           path: product/commission
           method: post
-          cors: true
+          cors:
+            origins: "*"
+            headers:
+              - Content-Type
+              - Authorization
+            methods:
+              - OPTIONS
+              - GET
+              - POST
+              - PUT
+              - DELETE
 
 resources:
   Resources:
@@ -178,11 +315,25 @@ resources:
             AttributeType: S
           - AttributeName: orderId
             AttributeType: S
+          - AttributeName: affiliateId
+            AttributeType: S  # ✅ Added for the new GSI
         KeySchema:
           - AttributeName: tenantId
             KeyType: HASH
           - AttributeName: orderId
             KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: TenantAffiliateIndex  # ✅ New GSI for `tenantId` and `affiliateId`
+            KeySchema:
+              - AttributeName: tenantId
+                KeyType: HASH
+              - AttributeName: affiliateId
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL  # ✅ Includes all attributes in the index
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
         BillingMode: PROVISIONED # Provisioned throughput mode
         ProvisionedThroughput: # Minimal configuration for cost-effectiveness
           ReadCapacityUnits: 1
